@@ -137,7 +137,10 @@ void *coalesce(free_block *block) {
  * @return A pointer to the allocated memory
  */
 void *do_alloc(size_t size) {
-    void *ptr = sbrk(size);
+    void *ptr = sbrk(size + sizeof(free_block));
+    if ((uintptr_t)ptr % ALIGNMENT != 0) {
+        ptr = (void *)(((uintptr_t)ptr + ALIGNMENT - 1) & ~(ALIGNMENT - 1));
+    }
     if (ptr == (void *) -1) {
         // Allocation failed
         return NULL;
@@ -154,15 +157,11 @@ void *do_alloc(size_t size) {
 void *tumalloc(size_t size) {
     if (HEAD == NULL) {
         void *ptr = do_alloc(size + sizeof(free_block));
-        if (ptr == NULL){
-            // Failed allocation
-            return NULL; 
-        }
         return ptr;
     }
 
     free_block *curr = HEAD;
-    for (curr in freelist) {
+    while (curr != NULL) {
         if (size <= curr->size) {
             void *split_ptr = split(curr, size+sizeof(free_block));
             if (split_ptr == NULL) {
@@ -170,12 +169,12 @@ void *tumalloc(size_t size) {
             }
 
             // Remove from free list
-            remove_free_block(curr)
+            remove_free_block(curr);
 
             // Size of header
             free_block *allocated_block = (free_block *)split_ptr;
             allocated_block->size = size;
-            
+
             // Magic of header
             *((unsigned int *)split_ptr) = 0x01234567;
 
@@ -183,21 +182,14 @@ void *tumalloc(size_t size) {
         curr = curr->next;
     }
 
-    ptr = do_alloc(size);
-    return ptr
+    void *ptr = do_alloc(size+sizeof(free_block));
+
+    free_block *new_block = (free_block *)ptr;
+    new_block->size = size;
+    new_block->next = NULL;
+
+    return (void *)((char *)ptr + sizeof(free_block));
 }
-        // for block in f ree_list do
-        // if size <= block.size then
-        // ptr = split(block, size+sizeof(header));
-        // remove_f ree_block(header);
-        // size of header = size;
-        // magic of header = 0x01234567;
-        // return pointer to start of user requested memory;
-        // if no block is big enough then
-        // ptr = do_alloc(size);
-        // return ptr;
-        // free_block *curr = HEAD;
-        // free_block *prev = find_prev(block);
 
 /**
  * Allocates and initializes a list of elements for the end user
@@ -212,7 +204,7 @@ void *tucalloc(size_t num, size_t size) {
     void *ptr = tumalloc(total_size);
     // Zeros memory
     if (ptr != NULL) {
-        memset(ptr, 0, total_size)
+        memset(ptr, 0, total_size);
     }   
     return ptr;
 }
@@ -224,22 +216,28 @@ void *tucalloc(size_t num, size_t size) {
  * @param new_size The new requested size to allocate
  * @return A new pointer containing the contents of ptr, but with the new_size
  */
+
 void *turealloc(void *ptr, size_t new_size) {
-    if (ptr==NULL) {
-        return tumalloc(new_size);
+    if (ptr == NULL) {
+        return tumalloc(new_size);  
     }
 
-    free_block *block = (free_block) ((char *)ptr - sizeof(free_block));
-
-    if (new_size >= block->size) {
-        if (new_size > block->size) {
-            split(block, new_size);
-        }
+    free_block *block = (free_block *)((char *)ptr - sizeof(free_block));
+    if (new_size == block->size) {
+        return ptr;  
+    }
+    if (new_size < block->size) {
+        split(block, new_size);
         return ptr;
     }
+    void *new_ptr = tumalloc(new_size);
+    if (new_ptr) {
+        printf("Reallocating block from %p with size %zu\n", ptr, block->size);
+        memcpy(new_ptr, ptr, block->size);
+        tufree(ptr);  
+    }
 
-    if (new_size <= block)
-    return NULL;
+    return new_ptr;
 }
 
 /**
@@ -248,16 +246,21 @@ void *turealloc(void *ptr, size_t new_size) {
  * @param ptr Pointer to the allocated piece of memory
  */
 void tufree(void *ptr) {
-    header = (header *)ptr - sizeof(header);
-    if magic_of_header = 0x01234567 {
-        free_block = (free_block *)header;
-        free_blocksize = size of header;
-        free_blocknext = HEAD;
-        HEAD = f ree_block;
-        coalesce(f ree_block);
+    // Check if pointer NULL
+    if (ptr == NULL) {
+        return;  
+    }
+
+    free_block *block_header = (free_block *)((char *)ptr - sizeof(free_block));
+    if (*((unsigned int *)block_header) == 0x01234567) {
+        free_block *free_block = block_header;
+        free_block->next = HEAD;
+        HEAD = free_block;
+        coalesce(free_block);
     }
     else {
-        print("MEMORY CORRUPTION DETECTED");
+        printf("MEMORY CORRUPTION DETECTED");
+        printf("Memory Corruption at block: %p\n", block_header);
         abort();
     }
 }
