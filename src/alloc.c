@@ -153,33 +153,39 @@ void *do_alloc(size_t size) {
  */
 void *tumalloc(size_t size) {
     if (HEAD == NULL) {
-        void *ptr = do_alloc(size);
+        void *ptr = do_alloc(size + sizeof(free_block));
         if (ptr == NULL){
             // Failed allocation
             return NULL; 
         }
         return ptr;
     }
-    else {
-        free_block *curr = HEAD;
-        free_block *prev = NULL;
 
-        for (block in freelist) {
-            if (size <= curr->size) {
-                ptr = splot(block,size+sizeof(header));
-                remove_free_block(header)
-                size_of_header = size;
-                magic_of_header = 0x01234567
+    free_block *curr = HEAD;
+    for (curr in freelist) {
+        if (size <= curr->size) {
+            void *split_ptr = split(curr, size+sizeof(free_block));
+            if (split_ptr == NULL) {
+                return NULL;
+            }
 
-            }
-            else {
-                ptr = do_alloc(size);
-                return ptr
-            }
-            free_block *curr = HEAD;
-            free_block*prev = find_prev(block);
+            // Remove from free list
+            remove_free_block(curr)
+
+            // Size of header
+            free_block *allocated_block = (free_block *)split_ptr;
+            allocated_block->size = size;
+            
+            // Magic of header
+            *((unsigned int *)split_ptr) = 0x01234567;
+
         }
+        curr = curr->next;
     }
+
+    ptr = do_alloc(size);
+    return ptr
+}
         // for block in f ree_list do
         // if size <= block.size then
         // ptr = split(block, size+sizeof(header));
@@ -192,7 +198,6 @@ void *tumalloc(size_t size) {
         // return ptr;
         // free_block *curr = HEAD;
         // free_block *prev = find_prev(block);
-}
 
 /**
  * Allocates and initializes a list of elements for the end user
