@@ -137,7 +137,12 @@ void *coalesce(free_block *block) {
  * @return A pointer to the allocated memory
  */
 void *do_alloc(size_t size) {
-    return NULL;
+    void *ptr = sbrk(size);
+    if (ptr == (void *) -1) {
+        // Allocation failed
+        return NULL;
+    }
+    return ptr;
 }
 
 /**
@@ -147,7 +152,37 @@ void *do_alloc(size_t size) {
  * @return A pointer to the requested block of memory
  */
 void *tumalloc(size_t size) {
-    return NULL;
+    free_block *curr = HEAD;
+    free_block *prev = find_prev(block);
+
+    // Checking free block 
+    while (curr != NULL) {
+        if (curr->size >= size){
+            // Block is large enough 
+            void *block_ptr = (char *)curr + sizeof(free_block);
+
+            if (curr->size > size + sizeof(free_block)) {
+                split(curr, size);
+            }
+
+            // Remove from freelist
+            remove_free_block(curr);
+
+            return block_ptr;
+        }
+        // Set prev to current and current to next block (move over 1)
+        prev = curr;
+        curr = curr->next;
+    }
+
+    // No suitable block found, request more memory 
+    size_t total_size = size + sizeof(free_block);
+    free_block *new_block = do_alloc(total_size);
+    if (!new_block) {
+        return NULL;
+    }
+
+    return (char *)new_block + sizeof(free_block);
 }
 
 /**
@@ -158,7 +193,14 @@ void *tumalloc(size_t size) {
  * @return A pointer to the requested block of initialized memory
  */
 void *tucalloc(size_t num, size_t size) {
-    return NULL;
+    size_t total_size = num * size;
+    // Uses tumalloc to get memory 
+    void *ptr = tumalloc(total_size);
+    // Zeros memory
+    if (ptr != NULL) {
+        memset(ptr, 0, total_size)
+    }   
+    return ptr;
 }
 
 /**
@@ -169,6 +211,20 @@ void *tucalloc(size_t num, size_t size) {
  * @return A new pointer containing the contents of ptr, but with the new_size
  */
 void *turealloc(void *ptr, size_t new_size) {
+    if (ptr==NULL) {
+        return tumalloc(new_size);
+    }
+
+    free_block *block = (free_block) ((char *)ptr - sizeof(free_block));
+
+    if (new_size >= block->size) {
+        if (new_size > block->size) {
+            split(block, new_size);
+        }
+        return ptr;
+    }
+
+    if (new_size <= block)
     return NULL;
 }
 
