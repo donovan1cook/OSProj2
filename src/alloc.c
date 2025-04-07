@@ -152,37 +152,46 @@ void *do_alloc(size_t size) {
  * @return A pointer to the requested block of memory
  */
 void *tumalloc(size_t size) {
-    free_block *curr = HEAD;
-    free_block *prev = find_prev(block);
-
-    // Checking free block 
-    while (curr != NULL) {
-        if (curr->size >= size){
-            // Block is large enough 
-            void *block_ptr = (char *)curr + sizeof(free_block);
-
-            if (curr->size > size + sizeof(free_block)) {
-                split(curr, size);
-            }
-
-            // Remove from freelist
-            remove_free_block(curr);
-
-            return block_ptr;
+    if (HEAD == NULL) {
+        void *ptr = do_alloc(size);
+        if (ptr == NULL){
+            // Failed allocation
+            return NULL; 
         }
-        // Set prev to current and current to next block (move over 1)
-        prev = curr;
-        curr = curr->next;
+        return ptr;
     }
+    else {
+        free_block *curr = HEAD;
+        free_block *prev = NULL;
 
-    // No suitable block found, request more memory 
-    size_t total_size = size + sizeof(free_block);
-    free_block *new_block = do_alloc(total_size);
-    if (!new_block) {
-        return NULL;
+        for (block in freelist) {
+            if (size <= curr->size) {
+                ptr = splot(block,size+sizeof(header));
+                remove_free_block(header)
+                size_of_header = size;
+                magic_of_header = 0x01234567
+
+            }
+            else {
+                ptr = do_alloc(size);
+                return ptr
+            }
+            free_block *curr = HEAD;
+            free_block*prev = find_prev(block);
+        }
     }
-
-    return (char *)new_block + sizeof(free_block);
+        // for block in f ree_list do
+        // if size <= block.size then
+        // ptr = split(block, size+sizeof(header));
+        // remove_f ree_block(header);
+        // size of header = size;
+        // magic of header = 0x01234567;
+        // return pointer to start of user requested memory;
+        // if no block is big enough then
+        // ptr = do_alloc(size);
+        // return ptr;
+        // free_block *curr = HEAD;
+        // free_block *prev = find_prev(block);
 }
 
 /**
@@ -234,5 +243,16 @@ void *turealloc(void *ptr, size_t new_size) {
  * @param ptr Pointer to the allocated piece of memory
  */
 void tufree(void *ptr) {
-
+    header = (header *)ptr - sizeof(header);
+    if magic_of_header = 0x01234567 {
+        free_block = (free_block *)header;
+        free_blocksize = size of header;
+        free_blocknext = HEAD;
+        HEAD = f ree_block;
+        coalesce(f ree_block);
+    }
+    else {
+        print("MEMORY CORRUPTION DETECTED");
+        abort();
+    }
 }
